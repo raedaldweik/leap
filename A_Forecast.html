@@ -317,6 +317,38 @@
             font-size: 12px;
             color: #333;
         }
+
+        /* --- إضافة تنسيق المطر --- */
+        .rain {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            overflow: hidden;
+            display: none; /* مخفي افتراضيًا، يُظهر عند مستوى تقريب عالٍ */
+        }
+
+        .rain-drop {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.7);
+            width: 1px;
+            height: 60px;
+            border-radius: 50%;
+            filter: blur(1px);
+            animation: fall 1.5s linear infinite;
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-100%);
+            }
+            100% {
+                transform: translateY(100%);
+            }
+        }
     </style>
 </head>
 <body>
@@ -347,6 +379,9 @@
 </div>
 
 <div id="map"></div>
+
+<!-- إضافة طبقة المطر هنا -->
+<div class="rain"></div>
 
 <!-- زر إعادة التمركز -->
 <button class="recenter-button" id="recenterButton">إعادة التمركز</button>
@@ -415,7 +450,7 @@
             description: "مستوى المياه يتجاوز الحد الحرج. بالقرب من عدة مبانٍ سكنية.",
             recommendation: "نشر مضخات الصرف في المناطق المتضررة وتحذير السكان في المناطق عالية الخطورة.",
             videoURL: "https://raedaldweik.github.io/flood-heatmap-data/cctv1.mp4",
-            analyticsURL: "https://raedaldweik.github.io/business_bay/"
+            analyticsURL: "https://raedaldweik.github.io/Al-Matar-St/"
         },
         {
             title: "تنبيه ارتفاع منسوب المياه الحرج",
@@ -425,7 +460,7 @@
             description: "مستوى المياه يتجاوز الحد الحرج. بالقرب من مبانٍ سكنية متعددة ومركز جراحة.",
             recommendation: "نشر مضخات الصرف في المناطق المتضررة وتحذير السكان في المناطق عالية الخطورة.",
             videoURL: "https://raedaldweik.github.io/flood-heatmap-data/cctv2.mp4",
-            analyticsURL: "https://raedaldweik.github.io/Jumeirah-Beach-Rd/"
+            analyticsURL: "https://raedaldweik.github.io/Qassem-Zeinah/"
         },
         {
             title: "تنبيه ارتفاع منسوب المياه الحرج",
@@ -435,7 +470,7 @@
             description: "مستوى المياه يتجاوز الحد الحرج.",
             recommendation: "نشر مضخات الصرف في المناطق المتضررة وتحذير السكان في المناطق عالية الخطورة.",
             videoURL: "https://raedaldweik.github.io/flood-heatmap-data/cctv3.mp4",
-            analyticsURL: "https://raedaldweik.github.io/Al-Mina-St/"
+            analyticsURL: "https://raedaldweik.github.io/Ash-Shati/"
         }
     ];
 
@@ -872,8 +907,43 @@
                 speed: 2,
                 curve: 1
             });
+
+        });
+
+        /* --- إضافة شفرة المطر: إنشاء القطرات والتحكم في الظهور حسب التقريب --- */
+        createRainDrops();
+
+        map.on('zoom', () => {
+            const zoomLevel = map.getZoom();
+            const rainContainer = document.querySelector('.rain');
+            if (zoomLevel >= 16) {
+                rainContainer.style.display = 'block';
+            } else {
+                rainContainer.style.display = 'none';
+            }
         });
     });
+
+    // دالة لإنشاء قطرات المطر
+    function createRainDrops() {
+        const rainContainer = document.querySelector('.rain');
+        const numberOfDrops = 250;
+        for (let i = 0; i < numberOfDrops; i++) {
+            const drop = document.createElement('div');
+            drop.classList.add('rain-drop');
+
+            const dropWidth = Math.random() * 2 + 1 + 'px';
+            const dropHeight = Math.random() * 50 + 40 + 'px';
+            drop.style.width = dropWidth;
+            drop.style.height = dropHeight;
+            drop.style.left = Math.random() * window.innerWidth + 'px';
+            drop.style.top = Math.random() * window.innerHeight + 'px';
+            drop.style.animationDuration = (Math.random() * 1.5 + 0.5) + 's';
+            drop.style.opacity = Math.random() * 0.5 + 0.3;
+
+            rainContainer.appendChild(drop);
+        }
+    }
 </script>
 
 </body>
