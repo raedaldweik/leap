@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>خريطة تنبيهات الفيضانات مع ملخص المدينة والمساعد الذكي</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- ربط مكتبة Mapbox CSS و JS -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
+    <!-- الخطوط المخصصة -->
+    <link href="https://fonts.googleapis.com/css?family=Poppins:400,500,600&display=swap" rel="stylesheet">
+    <style>
+       body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* قسم الخريطة */
+        #map {
+            flex-grow: 1;
+        }
+
+        /* تنسيق الشريط الجانبي */
+        #sidebar {
+            width: 350px;
+            background: linear-gradient(135deg, #34495e, #2c3e50);
+            border-radius: 15px;
+            box-shadow: -2px 0 20px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            color: #fff;
+            position: relative;
+            overflow: hidden;
+            padding: 20px;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        /* قسم ملخص المدينة */
+        #city-summary h2 {
+            margin-top: 0;
+            color: #ecf0f1;
+            font-size: 22px;
+            letter-spacing: 1px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        #city-summary h3 {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #bdc3c7;
+            text-align: center;
+            font-weight: 400;
+        }
+
+        .metric {
+            margin-bottom: 15px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            transition: background 0.3s ease;
+        }
+
+        .metric:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .metric label {
+            font-weight: 500;
+            font-size: 15px;
+            color: #bdc3c7;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .status-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #444;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 8px;
+        }
+
+        .status-bar .status-fill {
+            height: 100%;
+            background-color: green;
+            transition: width 0.3s ease;
+        }
+
+        .status-label {
+            font-size: 14px;
+            color: #f39c12;
+            margin-top: -5px;
+            font-weight: 500;
+        }
+
+        /* زر المساعد الذكي */
+        .gen-ai-button {
+            position: absolute; /* يتمركز بشكل مطلق بالنسبة إلى حاوية الخريطة */
+            bottom: 50px; /* المسافة من أسفل النافذة */
+            left: 650px; /* المسافة من يسار الشاشة (وليس من الشريط الجانبي) */
+            background-color: #6c5ce7;
+            color: white;
+            padding: 12px 20px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            transition: background 0.3s ease;
+            font-size: 16px;
+            z-index: 1000; /* لضمان بقائه فوق الخريطة */
+        }
+
+        .gen-ai-button:hover {
+            background-color: #5e4bca;
+        }
+
+        /* تنسيق النافذة المنبثقة للمساعد الذكي */
+        .gen-ai-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            height: 90%;
+            background-color: white;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            z-index: 9999;
+            display: none;
+            flex-direction: column;
+        }
+
+        .gen-ai-popup iframe {
+            width: 100%;
+            height: 90%;
+        }
+
+        .gen-ai-popup .close-button {
+            align-self: flex-end;
+            background-color: #ff5c5c;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 5px;
+            transition: background 0.3s ease;
+        }
+
+        .gen-ai-popup .close-button:hover {
+            background-color: #ff2b2b;
+        }
+
+        /* تنسيق نافذة الفيديو */
+        .video-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            max-width: 80%;
+            background-color: white;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            z-index: 9999;
+            display: none;
+            flex-direction: column;
+        }
+
+        .video-popup iframe {
+            width: 100%;
+            height: 400px;
+        }
+
+        .video-popup .close-button {
+            align-self: flex-end;
+            background-color: #ff5c5c;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 5px;
+            transition: background 0.3s ease;
+        }
+
+        .video-popup .close-button:hover {
+            background-color: #ff2b2b;
+        }
+
+        /* التراكب */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9998;
+            display: none;
+        }
+
+        /* تعديلات على استجابة التصميم */
+        @media (max-width: 768px) {
+            #sidebar {
+                width: 280px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #sidebar {
+                width: 100%;
+                position: absolute;
+                height: 100vh;
+                z-index: 1000;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            #sidebar.open {
+                transform: translateX(0);
+            }
+
+            #map {
+                flex: none;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- قسم الخريطة -->
+    <div id="map"></div>
+
+    <!-- قسم الشريط الجانبي -->
+    <div id="sidebar">
+
+        <!-- قسم ملخص المدينة -->
+        <div id="city-summary">
+            <h2>عرض المدينة (انقر على التنبيه لمشاهدة الكاميرا الحية)</h2>
+
+            <!-- حالة الازدحام -->
+            <div class="metric">
+                <label>مستوى الازدحام: ازدحام مرتفع</label>
+                <div class="status-bar">
+                    <div class="status-fill" style="width: 80%; background-color: red;"></div>
+                </div>
+            </div>
+
+            <!-- حالة الطرق -->
+            <div class="metric">
+                <label>حالة الطرق: رطبة وزلقة</label>
+                <div class="status-bar">
+                    <div class="status-fill" style="width: 70%; background-color: orange;"></div>
+                </div>
+            </div>
+
+            <!-- حالة تشغيل المترو -->
+            <div class="metric">
+                <label>تشغيل المترو: تأخيرات متوقعة</label>
+                <div class="status-bar">
+                    <div class="status-fill" style="width: 60%; background-color: orange;"></div>
+                </div>
+            </div>
+
+            <!-- حالة الحافلات -->
+            <div class="metric">
+                <label>تشغيل الحافلات: تأخيرات كبيرة</label>
+                <div class="status-bar">
+                    <div class="status-fill" style="width: 90%; background-color: red;"></div>
+                </div>
+            </div>
+
+            <!-- إغلاقات الطرق -->
+            <div class="metric">
+                <label>إغلاقات الطرق:</label>
+                <span>5 طرق مغلقة بسبب الفيضانات</span>
+            </div>
+
+            <!-- الحوادث -->
+            <div class="metric">
+                <label>الحوادث:</label>
+                <span>تم الإبلاغ عن 10 حوادث</span>
+            </div>
+        </div>
+
+    </div> <!-- نهاية الشريط الجانبي -->
+
+    <!-- زر المساعد الذكي (خارج الشريط الجانبي، يطفو على الخريطة) -->
+    <button class="gen-ai-button" id="genAiButton">استكشف المساعد الذكي</button>
+
+    <!-- نافذة الفيديو -->
+    <div class="overlay" id="overlay"></div>
+    <div class="video-popup" id="video-popup">
+        <button class="close-button" onclick="closeVideoPopup()">إغلاق</button>
+        <video id="video-element" autoplay loop muted style="width: 100%; height: 100%;">
+            <source id="video-source" src="" type="video/mp4">
+            متصفحك لا يدعم وسم الفيديو.
+        </video>
+    </div>
+
+    <!-- نافذة المساعد الذكي -->
+    <div class="gen-ai-popup" id="genAiPopup">
+        <button class="close-button" onclick="closeGenAiPopup()">إغلاق</button>
+        <iframe src="https://raedaldweik.github.io/flood-heatmap-data/chat.html" frameborder="0"></iframe> <!-- استبدل بعنوان المساعد الخاص بك -->
+    </div>
+
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoicmFlZGR3ZWlrIiwiYSI6ImNtMTZqZGtpeTBta2cydnM4NjBkenhsMG8ifQ.r3ufHWJMoGh_DCH3XDhDAg'; // استبدل بقيمتك الخاصة من Mapbox
+
+        const map = new mapboxgl.Map({
+            container: 'map',
+            center: [39.17405087304286, 21.55475046021796], // إحداثيات الموقع
+            zoom: 11,
+            style: 'mapbox://styles/raeddweik/cm279t5wv00dn01pe8s2qenns'
+        });
+
+        // تسجيل بيانات المركز والتقريب والميول والاتجاه في وحدة التحكم بعد انتهاء الحركة
+        map.on('moveend', () => {
+            console.log('المركز:', map.getCenter());
+            console.log('مستوى التقريب (Zoom):', map.getZoom());
+            console.log('زاوية الميل (Pitch):', map.getPitch());
+            console.log('الاتجاه (Bearing):', map.getBearing());
+        });
+
+        // وظيفة زر المساعد الذكي
+        const genAiButton = document.getElementById('genAiButton');
+        const genAiPopup = document.getElementById('genAiPopup');
+        const overlay = document.getElementById('overlay');
+
+        genAiButton.addEventListener('click', () => {
+            genAiPopup.style.display = 'flex';
+            overlay.style.display = 'block';
+        });
+
+        function closeGenAiPopup() {
+            genAiPopup.style.display = 'none';
+            overlay.style.display = 'none';
+        }
+
+        // النقاط النابضة
+        const pulsingDot = {
+            width: 200, // حجم معدل للنقاط النابضة
+            height: 200,
+            data: new Uint8Array(200 * 200 * 4),
+            onAdd: function () {
+                const canvas = document.createElement('canvas');
+                canvas.width = this.width;
+                canvas.height = this.height;
+                this.context = canvas.getContext('2d', { willReadFrequently: true });
+            },
+            render: function () {
+                const duration = 1000;
+                const t = (performance.now() % duration) / duration;
+                const radius = (this.width / 2) * 0.3;
+                const outerRadius = (this.width / 2) * 0.7 * t + radius;
+                const context = this.context;
+
+                context.clearRect(0, 0, this.width, this.height);
+                context.beginPath();
+                context.arc(this.width / 2, this.height / 2, outerRadius, 0, Math.PI * 2);
+                context.fillStyle = `rgba(255, 200, 200, ${1 - t})`;
+                context.fill();
+
+                context.beginPath();
+                context.arc(this.width / 2, this.height / 2, radius, 0, Math.PI * 2);
+                context.fillStyle = 'rgba(255, 100, 100, 1)';
+                context.strokeStyle = 'white';
+                context.lineWidth = 2 + 4 * (1 - t);
+                context.fill();
+                context.stroke();
+
+                this.data = context.getImageData(0, 0, this.width, this.height).data;
+                map.triggerRepaint();
+                return true;
+            }
+        };
+
+        map.on('load', function () {
+            map.addImage('pulsing-dot', pulsingDot, { pixelRatio: 2 });
+
+            const coordinates = [
+                [39.193599594022686, 21.494275598677348],
+                [39.160690970161085, 21.573336779430278],
+                [39.110516622177784, 21.62217029994548]
+            ];
+
+            const videoURLs = [
+                'https://raedaldweik.github.io/flood-heatmap-data/cctv1.mp4',
+                'https://raedaldweik.github.io/flood-heatmap-data/cctv2.mp4',
+                'https://raedaldweik.github.io/flood-heatmap-data/cctv3.mp4'
+            ];
+
+            coordinates.forEach((coord, index) => {
+                map.addSource(`dot-point-${index}`, {
+                    'type': 'geojson',
+                    'data': {
+                        'type': 'Feature',
+                        'geometry': {
+                            'type': 'Point',
+                            'coordinates': coord
+                        }
+                    }
+                });
+
+                map.addLayer({
+                    'id': `layer-with-pulsing-dot-${index}`,
+                    'type': 'symbol',
+                    'source': `dot-point-${index}`,
+                    'layout': {
+                        'icon-image': 'pulsing-dot',
+                        'icon-allow-overlap': true
+                    }
+                });
+
+                // إضافة حدث النقر لكل نقطة نابضة
+                map.on('click', `layer-with-pulsing-dot-${index}`, () => {
+                    openVideoPopup(videoURLs[index]);
+                });
+            });
+
+            // التأكد من إعادة ضبط الخريطة لتناسب الحاوية
+            map.resize();
+        });
+
+        // وظيفة لفتح نافذة الفيديو
+        function openVideoPopup(videoURL) {
+            const overlay = document.getElementById('overlay');
+            const popup = document.getElementById('video-popup');
+            const videoElement = document.getElementById('video-element');
+            const videoSource = document.getElementById('video-source');
+
+            videoSource.src = videoURL; // تعيين رابط الفيديو
+            videoElement.load(); // إعادة تحميل الفيديو لتطبيق المصدر الجديد
+            overlay.style.display = 'block';
+            popup.style.display = 'flex';
+        }
+
+        // وظيفة لإغلاق نافذة الفيديو
+        function closeVideoPopup() {
+            const overlay = document.getElementById('overlay');
+            const popup = document.getElementById('video-popup');
+            const videoElement = document.getElementById('video-element');
+
+            videoElement.pause(); // إيقاف تشغيل الفيديو
+            overlay.style.display = 'none';
+            popup.style.display = 'none';
+        }
+    </script>
+
+</body>
+</html>
