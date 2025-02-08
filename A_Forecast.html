@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>التنبؤ والمحاكاة المدعومة بالذكاء الاصطناعي</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <!-- Mapbox GL JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css" rel="stylesheet" />
+    <!-- الخطوط المخصصة -->
+    <link href="https://fonts.googleapis.com/css?family=Poppins:400,500,600&display=swap" rel="stylesheet">
+    <style>
+        /* تنسيق عام */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+        }
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        /* تنسيق الشريط الجانبي */
+        #sidebar {
+            position: absolute;
+            width: 300px;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #3c5c7e, #1d2c43);
+            padding: 20px;
+            z-index: 1;
+            overflow: hidden; /* إخفاء التمرير */
+            scrollbar-width: none; /* لـ Firefox */
+            -ms-overflow-style: none; /* لـ IE و Edge */
+            border-radius: 15px; /* حواف منحنية */
+            box-shadow: -2px 0 20px rgba(0, 0, 0, 0.4);
+        }
+
+        /* إخفاء شريط التمرير لـ Chrome, Safari, وOpera */
+        #sidebar::-webkit-scrollbar {
+            display: none;
+        }
+
+        #sidebar h2, #sidebar h3, #sidebar p {
+            color: #ffffff;
+        }
+
+        #sidebar h2 {
+            margin: 0;
+            padding: 0;
+            font-size: 22px;
+        }
+
+        #sidebar h3 {
+            font-size: 18px;
+            cursor: pointer;
+            white-space: nowrap; /* منع التفاف النص */
+        }
+
+        #sidebar p {
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        /* تنسيق تفاصيل التنبيه */
+        #alert-details h3 {
+            margin-top: 20px;
+            color: #fff;
+            font-size: 18px; /* حجم الخط المصغّر */
+            letter-spacing: 1px;
+            white-space: nowrap; /* منع التفاف النص */
+        }
+
+        .alert-info {
+            margin-bottom: 10px; /* مصغرة من 20px */
+            padding: 5px;        /* مصغرة من 10px */
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2); /* ظل أخف */
+            border-radius: 8px;
+            transition: background 0.3s ease;
+        }
+
+        .alert-info:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.2));
+        }
+
+        .alert-info label {
+            font-weight: bold;
+            font-size: 14px; /* حجم الخط المصغّر */
+            color: #c1c8e4;
+        }
+
+        .alert-info p,
+        .alert-info span {
+            margin-left: 5px;
+            color: #ffd700;
+            margin: 0;
+            font-size: 14px; /* توحيد حجم الخط */
+        }
+
+        .alert-severity {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            background-color: #ff6b6b;
+            color: #fff;
+            font-weight: bold;
+            box-shadow: 0 0 5px rgba(255, 100, 100, 0.6);
+        }
+
+        /* تنسيق صندوق الإجراءات */
+        #action-box {
+            display: none;
+            position: absolute;
+            top: 100px;
+            right: 20px;
+            width: 220px;
+            background: linear-gradient(135deg, #3c5c7e, #1d2c43);
+            padding: 15px;
+            border-radius: 15px; /* حواف منحنية */
+            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.4);
+            z-index: 9999;
+        }
+
+        #action-box h3 {
+            color: #ffffff;
+            font-size: 16px;
+        }
+
+        .action-button {
+            margin-top: 10px;
+            padding: 8px;
+            background-color: #1e90ff;
+            color: white;
+            border: none;
+            border-radius: 4px; /* حواف منحنية */
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
+
+        .action-button:hover {
+            background-color: #182848;
+        }
+
+        /* قسم التنبؤ */
+        .forecast-section {
+            margin-top: 15px;
+        }
+
+        .forecast-button {
+            margin-top: 10px;
+            padding: 8px;
+            background-color: #4b6cb7;
+            color: white;
+            border: none;
+            border-radius: 4px; /* حواف منحنية */
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
+
+        .forecast-button:hover {
+            background-color: #182848;
+        }
+
+        #slider {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        /* زر إعادة التمركز */
+        .recenter-button {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            background-color: #4b6cb7;
+            color: white;
+            border: none;
+            border-radius: 5px; /* حواف منحنية */
+            cursor: pointer;
+            z-index: 10;
+            font-size: 14px;
+        }
+
+        .recenter-button:hover {
+            background-color: #182848;
+        }
+
+        /* تنسيق دليل مستويات المياه */
+        #legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: white;
+            padding: 10px;
+            border-radius: 4px; /* حواف منحنية */
+            box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        #legend div {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        #legend div span {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            margin-right: 5px;
+        }
+
+        /* تنسيق النافذة المنبثقة للتحليلات */
+        #analyticsModal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px; /* حواف منحنية */
+            width: 80%;
+            max-width: 800px;
+            height: 80%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .close-button {
+            align-self: flex-end;
+            background-color: #ff5c5c;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px; /* حواف منحنية */
+            transition: background 0.3s ease;
+        }
+
+        .close-button:hover {
+            background-color: #ff2b2b;
+        }
+
+        /* تنسيق نافذة الكاميرا الأمنية */
+        .video-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            max-width: 80%;
+            background-color: white;
+            border: 2px solid #ccc;
+            border-radius: 8px; /* حواف منحنية */
+            z-index: 9999;
+            display: none;
+            flex-direction: column;
+        }
+
+        .video-popup video {
+            width: 100%;
+            height: auto;
+        }
+
+        .video-popup .close-button {
+            align-self: flex-end;
+            background-color: #ff5c5c;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px; /* حواف منحنية */
+            transition: background 0.3s ease;
+            margin: 5px;
+        }
+
+        .video-popup .close-button:hover {
+            background-color: #ff2b2b;
+        }
+
+        /* تراكب للنافذة المنبثقة للفيديو */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9998;
+            display: none;
+        }
+
+        /* تنسيق النقطة النابضة (Pulsing Dot) */
+        .mapboxgl-popup-content {
+            text-align: center;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .mapboxgl-popup-content strong {
+            font-size: 12px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+<!-- الشريط الجانبي للتنبيهات -->
+<div id="sidebar">
+    <h2>التنبؤ والمحاكاة المدعومة بالذكاء الاصطناعي</h2>
+    <p>انقر على التنبيه</p>
+
+    <!-- قسم تفاصيل التنبيه -->
+    <div id="alert-details">
+        <h3>تفاصيل التنبيه</h3>
+        <p>اختر تنبيهًا لعرض التفاصيل.</p>
+    </div>
+</div>
+
+<!-- صندوق الإجراءات للأزرار والمنزلق -->
+<div id="action-box">
+    <h3>الإجراءات</h3>
+    <button class="action-button" id="viewAnalyticsButton">عرض التحليلات</button>
+    <button class="action-button" onclick="callAgent()">الكاميرا الأمنية</button>
+
+    <div class="forecast-section">
+        <h3>التنبؤ</h3>
+        <input id="slider" type="range" min="0" max="6" step="1" value="0">
+        <button class="forecast-button" id="playPause">تشغيل التنبؤ</button>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<!-- زر إعادة التمركز -->
+<button class="recenter-button" id="recenterButton">إعادة التمركز</button>
+
+<!-- دليل مستويات المياه -->
+<div id="legend">
+    <div><span style="background-color: #eef91a;"></span>مستوى ماء منخفض</div>
+    <div><span style="background-color: #d36d64;"></span>مستوى ماء متوسط</div>
+    <div><span style="background-color: #b9467a;"></span>مستوى ماء مرتفع</div>
+    <div><span style="background-color: #67009e;"></span>مستوى ماء حرج</div>
+</div>
+
+<!-- نافذة الفيديو -->
+<div class="overlay" id="overlay"></div>
+<div class="video-popup" id="video-popup">
+    <button class="close-button" onclick="closeVideoPopup()">إغلاق</button>
+    <video id="video-element" autoplay loop muted>
+        <source id="video-source" src="" type="video/mp4">
+        متصفحك لا يدعم عنصر الفيديو.
+    </video>
+</div>
+
+<!-- النافذة المنبثقة للتحليلات -->
+<div id="analyticsModal">
+    <div class="modal-content">
+        <button class="close-button" onclick="closeAnalyticsModal()">إغلاق</button>
+        <!-- سيتم إضافة iframe هنا ديناميكيًا -->
+    </div>
+</div>
+
+<script>
+    // مفتاح الوصول إلى Mapbox
+    mapboxgl.accessToken = 'pk.eyJ1IjoicmFlZGR3ZWlrIiwiYSI6ImNtMTZqZGtpeTBta2cydnM4NjBkenhsMG8ifQ.r3ufHWJMoGh_DCH3XDhDAg';
+
+    const initialCenter = [39.14933175002702, 21.553473148613023];
+    const initialZoom = 11;
+
+    const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/raeddweik/cm1eudgu102ju01pb8tmdb81t',
+        center: initialCenter,
+        zoom: initialZoom,
+        pitch: 0,
+        bearing: 0
+    });
+
+    // زر إعادة التمركز
+    document.getElementById('recenterButton').addEventListener('click', function () {
+        map.flyTo({
+            center: initialCenter,
+            zoom: initialZoom,
+            pitch: 0,
+            bearing: 0,
+            speed: 2
+        });
+        resetAlertDetails();
+    });
+
+    // بيانات التنبيهات (عربي)
+    const alertData = [
+        {
+            title: "تنبيه ارتفاع منسوب المياه الحرج",
+            location: "العمارية، شارع المطار",
+            time: "2024-10-01 12:00 ظهرًا",
+            severity: "حرج",
+            description: "مستوى المياه يتجاوز الحد الحرج. بالقرب من عدة مبانٍ سكنية.",
+            recommendation: "نشر مضخات الصرف في المناطق المتضررة وتحذير السكان في المناطق عالية الخطورة.",
+            videoURL: "https://raedaldweik.github.io/flood-heatmap-data/cctv1.mp4",
+            analyticsURL: "https://raedaldweik.github.io/business_bay/"
+        },
+        {
+            title: "تنبيه ارتفاع منسوب المياه الحرج",
+            location: "الروضة، قاسم زينه",
+            time: "2024-10-01 11:00 صباحًا",
+            severity: "حرج",
+            description: "مستوى المياه يتجاوز الحد الحرج. بالقرب من مبانٍ سكنية متعددة ومركز جراحة.",
+            recommendation: "نشر مضخات الصرف في المناطق المتضررة وتحذير السكان في المناطق عالية الخطورة.",
+            videoURL: "https://raedaldweik.github.io/flood-heatmap-data/cctv2.mp4",
+            analyticsURL: "https://raedaldweik.github.io/Jumeirah-Beach-Rd/"
+        },
+        {
+            title: "تنبيه ارتفاع منسوب المياه الحرج",
+            location: "الشاطئ، جبير بن الحارث",
+            time: "2024-10-01 9:00 صباحًا",
+            severity: "حرج",
+            description: "مستوى المياه يتجاوز الحد الحرج.",
+            recommendation: "نشر مضخات الصرف في المناطق المتضررة وتحذير السكان في المناطق عالية الخطورة.",
+            videoURL: "https://raedaldweik.github.io/flood-heatmap-data/cctv3.mp4",
+            analyticsURL: "https://raedaldweik.github.io/Al-Mina-St/"
+        }
+    ];
+
+    // دالة لتحديث تفاصيل التنبيه
+    function updateAlertDetails(alert) {
+        const alertDetailsDiv = document.getElementById('alert-details');
+        alertDetailsDiv.innerHTML = `
+            <h3>${alert.title}</h3>
+            <div class="alert-info">
+                <label>الموقع:</label>
+                <p>${alert.location}</p>
+            </div>
+            <div class="alert-info">
+                <label>الوقت والتاريخ:</label>
+                <p>${alert.time}</p>
+            </div>
+            <div class="alert-info">
+                <label>شدة الفيضان:</label>
+                <span class="alert-severity">${alert.severity}</span>
+            </div>
+            <div class="alert-info">
+                <label>وصف مفصل:</label>
+                <p>${alert.description}</p>
+            </div>
+            <div class="alert-info">
+                <label>توصية:</label>
+                <p>${alert.recommendation}</p>
+            </div>
+        `;
+    }
+
+    // دالة لإعادة ضبط تفاصيل التنبيه
+    function resetAlertDetails() {
+        const alertDetailsDiv = document.getElementById('alert-details');
+        alertDetailsDiv.innerHTML = `
+            <h3>تفاصيل التنبيه</h3>
+            <p>اختر تنبيهًا لعرض التفاصيل.</p>
+        `;
+        document.getElementById('action-box').style.display = 'none'; // إخفاء صندوق الإجراءات
+    }
+
+    // دالة لفتح نافذة التحليلات
+    function openAnalyticsModal(url) {
+        const iframe = document.createElement('iframe');
+        iframe.src = url;
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.border = 'none';
+
+        const modalContent = document.querySelector('#analyticsModal .modal-content');
+        modalContent.innerHTML = `
+            <button class="close-button" onclick="closeAnalyticsModal()">إغلاق</button>
+        `;
+        modalContent.appendChild(iframe);
+
+        document.getElementById('analyticsModal').style.display = 'flex';
+    }
+
+    function closeAnalyticsModal() {
+        document.getElementById('analyticsModal').style.display = 'none';
+    }
+
+    // دوال نافذة الفيديو (الكاميرا الأمنية)
+    function openVideoPopup(videoURL) {
+        const overlay = document.getElementById('overlay');
+        const popup = document.getElementById('video-popup');
+        const videoElement = document.getElementById('video-element');
+        const videoSource = document.getElementById('video-source');
+
+        videoSource.src = videoURL;
+        videoElement.load();
+        overlay.style.display = 'block';
+        popup.style.display = 'flex';
+    }
+
+    function closeVideoPopup() {
+        const overlay = document.getElementById('overlay');
+        const popup = document.getElementById('video-popup');
+        const videoElement = document.getElementById('video-element');
+
+        videoElement.pause();
+        overlay.style.display = 'none';
+        popup.style.display = 'none';
+    }
+
+    // دالة للتعامل مع زر "الكاميرا الأمنية"
+    function callAgent() {
+        openVideoPopup(selectedAlert.videoURL);
+    }
+
+    // دالة للتعامل مع النقر على التنبيه
+    let selectedAlert = null;
+    function handleAlertClick(index, coordinates, flyToOptions) {
+        selectedAlert = alertData[index];
+        map.flyTo(flyToOptions);
+        updateAlertDetails(selectedAlert);
+        document.getElementById('action-box').style.display = 'block'; // إظهار صندوق الإجراءات عند النقر على التنبيه
+
+        // تعيين الدالة عند النقر على "عرض التحليلات"
+        document.getElementById('viewAnalyticsButton').onclick = function() {
+            openAnalyticsModal(selectedAlert.analyticsURL);
+        };
+    }
+
+    // بيانات الطرق
+    const geojson = {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "properties": {},
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [39.19509265136432, 21.496100259095186],
+              [39.19472259520077, 21.49580424098329],
+              [39.19436068586654, 21.495514197984164],
+              [39.193988280699415, 21.495228746744758],
+              [39.193597489071294, 21.494954389746013],
+              [39.193228295112704, 21.494665147293816],
+              [39.192838109487326, 21.494385088995756],
+              [39.19244087926771, 21.494142880926745],
+              [39.19205351787073, 21.493914057950533],
+              [39.19163122015195, 21.493671899629945],
+              [39.19119795091808, 21.4934467643871],
+              [39.19078466223357, 21.493217359157157],
+              [39.19023824877965, 21.492964051969466]
+            ]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {},
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [39.15846292115131, 21.57278824180399],
+              [39.158923433957426, 21.57291873009757],
+              [39.1593851772586, 21.573046190002046],
+              [39.15984411191616, 21.57318442125802],
+              [39.160316612359566, 21.573322272990723],
+              [39.16075553658712, 21.57344885271435],
+              [39.161239555961515, 21.573586535076927],
+              [39.161693567551424, 21.57372083646382],
+              [39.16215737759879, 21.57385020335576],
+              [39.162612225753605, 21.573984998941725],
+              [39.16308016060856, 21.574119470749764],
+              [39.163533791504875, 21.57425449888936],
+              [39.16400363098842, 21.574382554248714]
+            ]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {},
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [39.158540471896, 21.572660774043555],
+              [39.15901207153004, 21.57280694330794],
+              [39.15945840176562, 21.572932833300058],
+              [39.15992708462514, 21.573064412233606],
+              [39.16038914820646, 21.573205937792807],
+              [39.16086092725365, 21.573334742814524],
+              [39.161338767698766, 21.573472717646837],
+              [39.16178057015574, 21.573602266800535],
+              [39.16223510895523, 21.573731246438612],
+              [39.16270739217603, 21.573875304348917],
+              [39.16316756239593, 21.57400890777835],
+              [39.163608753930106, 21.574122984810685],
+              [39.164037264993, 21.57425983572979]
+            ]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {},
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [39.11458772176351, 21.62362161150932],
+              [39.11412252939715, 21.623526997239182],
+              [39.11363602359387, 21.62342128978328],
+              [39.11316914974864, 21.623316914312355],
+              [39.112705452600494, 21.62320375780446],
+              [39.11222839424403, 21.623098584419367],
+              [39.11176593192329, 21.62299867940594],
+              [39.11131276279602, 21.622912415103272],
+              [39.11083133551341, 21.622906655394004],
+              [39.11032648063332, 21.62295153831812],
+              [39.10993466070272, 21.622928504228653],
+              [39.109738860429104, 21.62266417055163],
+              [39.10983751127148, 21.622238201013403]
+            ]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {},
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [39.11454191437062, 21.623726094336092],
+              [39.114077289184706, 21.62362722232548],
+              [39.11361049883345, 21.623514623265805],
+              [39.11313399956089, 21.623413738468642],
+              [39.1126594588909, 21.62330379395121],
+              [39.1122143392067, 21.623202190290016],
+              [39.111742038665255, 21.62310634877717],
+              [39.11127498354324, 21.623014969253703],
+              [39.11077649425752, 21.623003811945495],
+              [39.11024735968172, 21.62306804633694],
+              [39.10991865328606, 21.623217293258875],
+              [39.109610582666136, 21.62351414400979],
+              [39.109446748530615, 21.62375342811525]
+            ]
+          }
+        }
+      ]
+    };
+
+    // مستويات المياه على مراحل زمنية مختلفة
+    const floodLevels = [
+        [0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0],  // الوقت 0
+        [0, 0, 0, 1, 3, 1, 0, 0, 0, 0, 0, 0],  // الوقت 1
+        [0, 0, 1, 2, 3, 2, 1, 0, 0, 0, 0, 0],  // الوقت 2
+        [0, 1, 2, 2, 3, 2, 2, 1, 0, 0, 0, 0],  // الوقت 3
+        [0, 1, 2, 3, 3, 3, 2, 2, 1, 0, 0, 0],  // الوقت 4
+        [0, 2, 2, 3, 3, 3, 3, 2, 2, 1, 0, 0],  // الوقت 5
+        [0, 2, 3, 3, 3, 3, 3, 3, 2, 2, 1, 0]   // الوقت 6
+    ];
+
+    const colors = ['#eef91a', '#d36d64', '#b9467a', '#67009e'];
+
+    function updateLineGradient(time) {
+        geojson.features.forEach((feature, index) => {
+            const coordinates = feature.geometry.coordinates;
+            const gradient = floodLevels[time].map(level => colors[level]);
+            const step = 1 / (coordinates.length - 1);
+
+            const lineGradient = ['interpolate', ['linear'], ['line-progress']];
+            for (let i = 0; i < gradient.length; i++) {
+                lineGradient.push(i * step, gradient[i]);
+            }
+
+            map.setPaintProperty(`line-${index}`, 'line-gradient', lineGradient);
+        });
+    }
+
+    map.on('load', () => {
+        // إضافة طبقات الطرق بالخطوط المتدرجة
+        geojson.features.forEach((feature, index) => {
+            map.addSource(`line-${index}`, {
+                type: 'geojson',
+                lineMetrics: true,
+                data: feature
+            });
+
+            map.addLayer({
+                type: 'line',
+                source: `line-${index}`,
+                id: `line-${index}`,
+                paint: {
+                    'line-color': '#00435e',
+                    'line-width': 14,
+                    'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, '#00435e', 1, '#00435e']
+                },
+                layout: {
+                    'line-cap': 'round',
+                    'line-join': 'round'
+                }
+            });
+        });
+
+        updateLineGradient(0);
+
+        let isPlaying = false;
+        let playInterval;
+
+        function startAnimation() {
+            isPlaying = true;
+            document.getElementById('playPause').textContent = 'إيقاف التنبؤ';
+            playInterval = setInterval(() => {
+                const slider = document.getElementById('slider');
+                let currentValue = parseInt(slider.value, 10);
+                if (currentValue < floodLevels.length - 1) {
+                    slider.value = currentValue + 1;
+                } else {
+                    slider.value = 0;
+                }
+                updateLineGradient(parseInt(slider.value, 10));
+            }, 1000);
+        }
+
+        function stopAnimation() {
+            isPlaying = false;
+            document.getElementById('playPause').textContent = 'تشغيل التنبؤ';
+            clearInterval(playInterval);
+        }
+
+        document.getElementById('playPause').addEventListener('click', () => {
+            if (isPlaying) {
+                stopAnimation();
+            } else {
+                startAnimation();
+            }
+        });
+
+        document.getElementById('slider').addEventListener('input', (e) => {
+            const time = parseInt(e.target.value, 10);
+            updateLineGradient(time);
+        });
+
+        // إحداثيات النقاط النابضة
+        const pulsingDotCoordinates = [39.193599594022686, 21.494275598677348];
+        const pulsingDotCoordinates2 = [39.160690970161085, 21.573336779430278];
+        const pulsingDotCoordinates3 = [39.11320682939959, 21.622611294877558];
+
+        const size = 200;
+        const pulsingDot = {
+            width: size,
+            height: size,
+            data: new Uint8Array(size * size * 4),
+
+            onAdd: function () {
+                const canvas = document.createElement('canvas');
+                canvas.width = this.width;
+                canvas.height = this.height;
+                this.context = canvas.getContext('2d');
+            },
+
+            render: function () {
+                const duration = 1000;
+                const t = (performance.now() % duration) / duration;
+                const radius = (size / 2) * 0.3;
+                const outerRadius = (size / 2) * 0.7 * t + radius;
+                const context = this.context;
+
+                context.clearRect(0, 0, this.width, this.height);
+                context.beginPath();
+                context.arc(this.width / 2, this.height / 2, outerRadius, 0, Math.PI * 2);
+                context.fillStyle = `rgba(255, 200, 200, ${1 - t})`;
+                context.fill();
+
+                context.beginPath();
+                context.arc(this.width / 2, this.height / 2, radius, 0, Math.PI * 2);
+                context.fillStyle = 'rgba(255, 100, 100, 1)';
+                context.strokeStyle = 'white';
+                context.lineWidth = 2 + 4 * (1 - t);
+                context.fill();
+                context.stroke();
+
+                this.data = context.getImageData(0, 0, this.width, this.height).data;
+                map.triggerRepaint();
+
+                return true;
+            }
+        };
+
+        map.addImage('pulsing-dot', pulsingDot, { pixelRatio: 2 });
+
+        // دالة لإضافة طبقة النقطة النابضة
+        function addPulsingDotLayer(id, coordinates, description) {
+            map.addSource(`dot-point-${id}`, {
+                'type': 'geojson',
+                'data': {
+                    'type': 'FeatureCollection',
+                    'features': [{
+                        'type': 'Feature',
+                        'properties': { 'description': description },
+                        'geometry': { 'type': 'Point', 'coordinates': coordinates }
+                    }]
+                }
+            });
+
+            map.addLayer({
+                'id': `layer-with-pulsing-dot-${id}`,
+                'type': 'symbol',
+                'source': `dot-point-${id}`,
+                'layout': { 'icon-image': 'pulsing-dot' },
+                'minzoom': 10,
+                'maxzoom': 16
+            });
+
+            const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false });
+
+            map.on('mouseenter', `layer-with-pulsing-dot-${id}`, (e) => {
+                map.getCanvas().style.cursor = 'pointer';
+                const coords = e.features[0].geometry.coordinates.slice();
+                const desc = e.features[0].properties.description;
+                popup.setLngLat(coords).setHTML(desc).addTo(map);
+            });
+
+            map.on('mouseleave', `layer-with-pulsing-dot-${id}`, () => {
+                map.getCanvas().style.cursor = '';
+                popup.remove();
+            });
+        }
+
+        // إضافة النقاط النابضة
+        addPulsingDotLayer(1, pulsingDotCoordinates, '<strong>تنبيه: مؤشر ارتفاع المياه</strong>');
+        addPulsingDotLayer(2, pulsingDotCoordinates2, '<strong>تنبيه: مؤشر ارتفاع المياه</strong>');
+        addPulsingDotLayer(3, pulsingDotCoordinates3, '<strong>تنبيه: مؤشر ارتفاع المياه</strong>');
+
+        // أحداث النقر على النقاط النابضة
+        map.on('click', 'layer-with-pulsing-dot-1', () => {
+            handleAlertClick(0, pulsingDotCoordinates, {
+                center: pulsingDotCoordinates,
+                zoom: 16.78,
+                bearing: -113.51841986403525,
+                pitch: 59.75501731473658,
+                speed: 2,
+                curve: 1
+            });
+        });
+
+        map.on('click', 'layer-with-pulsing-dot-2', () => {
+            handleAlertClick(1, pulsingDotCoordinates2, {
+                center: pulsingDotCoordinates2,
+                zoom: 16.563599336448092,
+                bearing: -78.4261769515619,
+                pitch: 52.50000768826376,
+                speed: 2,
+                curve: 1
+            });
+        });
+
+        map.on('click', 'layer-with-pulsing-dot-3', () => {
+            handleAlertClick(2, pulsingDotCoordinates3, {
+                center: pulsingDotCoordinates3,
+                zoom: 16.7,
+                bearing: -101.80903328146314,
+                pitch: 57.81458765589534,
+                speed: 2,
+                curve: 1
+            });
+        });
+    });
+</script>
+
+</body>
+</html>
